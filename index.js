@@ -30,8 +30,15 @@ async function run() {
         app.get('/products/:BrandId', async (req, res) => {
 
             const id = req.params.BrandId;
-            console.log(id)
+
             const query = { BrandId: id }
+            const products = await productsCollection.find(query).toArray();
+            res.send(products);
+        })
+        app.get('/products', async (req, res) => {
+
+
+            const query = {};
             const products = await productsCollection.find(query).toArray();
             res.send(products);
         })
