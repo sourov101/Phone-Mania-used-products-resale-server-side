@@ -14,13 +14,14 @@ app.use(express.json());
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ehoamog.mongodb.net/?retryWrites=true&w=majority`;
-console.log(uri);
+
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 async function run() {
     try {
         const brandCollection = client.db('phone').collection('brands');
         const productsCollection = client.db('phone').collection('products');
+        const bookingCollection = client.db('phone').collection('booking');
 
         app.get('/brands', async (req, res) => {
             const query = {};
@@ -42,6 +43,14 @@ async function run() {
             const products = await productsCollection.find(query).toArray();
             res.send(products);
         })
+
+        app.post('/bookings', async (req, res) => {
+            const booking = req.body;
+            console.log(booking);
+            const result = await bookingCollection.insertOne(booking);
+            res.send(result);
+        });
+
     }
     finally {
 
