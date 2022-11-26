@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
@@ -44,6 +44,19 @@ async function run() {
         const bookingCollection = client.db('phone').collection('booking');
         const userCollection = client.db('phone').collection('user');
 
+
+
+        const verifyAdmin = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await userCollection.findOne(query);
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ message: 'Forbidden' })
+            }
+            next();
+        }
+
+
         app.get('/brands', async (req, res) => {
             const query = {};
             const brands = await brandCollection.find(query).toArray();
@@ -64,7 +77,11 @@ async function run() {
             const products = await productsCollection.find(query).toArray();
             res.send(products);
         })
-
+        app.post('/products', async (req, res) => {
+            const products = req.body;
+            const result = await productsCollection.insertOne(products);
+            res.send(result)
+        })
         app.get('/bookings', verifyJwt, async (req, res) => {
             const email = req.query.email;
             const decodedEmail = req.decoded.email;
@@ -84,7 +101,7 @@ async function run() {
         });
 
 
-        app.post('/users', async (req, res) => {
+        app.post('/users', verifyJwt, async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
             res.send(result);
@@ -103,7 +120,62 @@ async function run() {
             res.status(401).send({ accessToken: 'Unauthorized Access' })
         })
 
+        app.get('/users', async (req, res) => {
+
+            const query = {};
+            const users = await userCollection.find(query).toArray();
+            res.send(users);
+
+        })
+
+        app.put('/users/admin/:id', verifyJwt, verifyAdmin, async (req, res) => {
+
+
+
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        })
+
+        app.put('/users/verify/:id', verifyJwt, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    verified: 'true'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        })
+
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+
+            const query = { email }
+            const user = await userCollection.findOne(query);
+            res.send({ isAdmin: user?.role === 'admin' });
+        })
+
+        app.delete('/users/:id', verifyJwt, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await userCollection.deleteOne(filter);
+            res.send(result);
+        })
+
     }
+
+
+
     finally {
 
     }
