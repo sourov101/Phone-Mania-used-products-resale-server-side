@@ -77,11 +77,22 @@ async function run() {
             const products = await productsCollection.find(query).toArray();
             res.send(products);
         })
+
+
+
         app.post('/products', async (req, res) => {
             const products = req.body;
             const result = await productsCollection.insertOne(products);
             res.send(result)
         })
+
+        app.delete('/products/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await productsCollection.deleteOne(filter);
+            res.send(result);
+        })
+
         app.get('/bookings', verifyJwt, async (req, res) => {
             const email = req.query.email;
             const decodedEmail = req.decoded.email;
@@ -163,6 +174,13 @@ async function run() {
             const query = { email }
             const user = await userCollection.findOne(query);
             res.send({ isAdmin: user?.role === 'admin' });
+        })
+        app.get('/users/seller/:email', async (req, res) => {
+            const email = req.params.email;
+
+            const query = { email }
+            const user = await userCollection.findOne(query);
+            res.send({ isSeller: user?.userType === 'Seller' });
         })
 
         app.delete('/users/:id', verifyJwt, verifyAdmin, async (req, res) => {
