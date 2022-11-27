@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
@@ -43,6 +44,8 @@ async function run() {
         const productsCollection = client.db('phone').collection('products');
         const bookingCollection = client.db('phone').collection('booking');
         const userCollection = client.db('phone').collection('user');
+        const paymentCollection = client.db('phone').collection('payment');
+        const reportedCollection = client.db('phone').collection('reported');
 
 
 
@@ -85,6 +88,30 @@ async function run() {
             const result = await productsCollection.insertOne(products);
             res.send(result)
         })
+        app.put('/products/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                }
+            }
+            const result = await productsCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        })
+        app.put('/products/advertise/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    advertise: 'advertise',
+                }
+            }
+            const result = await productsCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        })
 
         app.delete('/products/:id', async (req, res) => {
             const id = req.params.id;
@@ -103,6 +130,13 @@ async function run() {
             const bookings = await bookingCollection.find(query).toArray();
             res.send(bookings)
         })
+        app.get('/bookings/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await bookingCollection.findOne(filter);
+            res.send(result);
+        })
+
 
         app.post('/bookings', async (req, res) => {
             const booking = req.body;
@@ -112,13 +146,42 @@ async function run() {
         });
 
 
-        app.post('/users', verifyJwt, async (req, res) => {
-            const user = req.body;
-            const result = await userCollection.insertOne(user);
-            res.send(result);
+        app.post('/create-payment-intent', async (req, res) => {
+            const booking = req.body;
+            console.log(booking);
+            const price = booking.resalePrice;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amount,
+                "payment_method_types": [
+                    "card"
+                ],
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
         })
 
+        app.post('/payment', async (req, res) => {
+            const payment = req.body;
+            const result = await paymentCollection.insertOne(payment);
+            const id = payment.productId;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
 
+                }
+            }
+
+            const updateResult = await bookingCollection.updateOne(filter, updatedDoc);
+
+            res.send(result);
+
+        })
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
             const query = { email: email }
@@ -138,6 +201,14 @@ async function run() {
             res.send(users);
 
         })
+
+
+        app.post('/users', verifyJwt, async (req, res) => {
+            const user = req.body;
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
+
 
         app.put('/users/admin/:id', verifyJwt, verifyAdmin, async (req, res) => {
 
@@ -189,6 +260,24 @@ async function run() {
             const result = await userCollection.deleteOne(filter);
             res.send(result);
         })
+
+        app.get('/reported', async (req, res) => {
+            const query = {};
+            const products = await reportedCollection.find(query).toArray();
+            res.send(products);
+        })
+        app.post('/reported', async (req, res) => {
+            const products = req.body;
+            const result = await reportedCollection.insertOne(products);
+            res.send(result)
+        })
+        app.delete('/reported/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: id };
+            const result = await reportedCollection.deleteOne(filter);
+            res.send(result);
+        })
+
 
     }
 
