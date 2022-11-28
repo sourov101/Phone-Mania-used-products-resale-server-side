@@ -7,10 +7,8 @@ const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
-
 
 
 
@@ -120,12 +118,9 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/bookings', verifyJwt, async (req, res) => {
-            const email = req.query.email;
-            const decodedEmail = req.decoded.email;
-            if (email !== decodedEmail) {
-                return res.status(403).send({ message: 'Forbidden' })
-            }
+        app.get('/bookings/:email', async (req, res) => {
+            const email = req.params.email;
+
             const query = { email: email };
             const bookings = await bookingCollection.find(query).toArray();
             res.send(bookings)
@@ -188,8 +183,8 @@ async function run() {
             const user = await userCollection.findOne(query);
             console.log(user);
             if (user) {
-                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN)
-                return res.send({ accessToken: token })
+                const token = jwt.sign({ email }, process.env.ACCESS_Token)
+                return res.send({ accessToken: token });
             }
             res.status(401).send({ accessToken: 'Unauthorized Access' })
         })
@@ -203,7 +198,7 @@ async function run() {
         })
 
 
-        app.post('/users', verifyJwt, async (req, res) => {
+        app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
             res.send(result);
